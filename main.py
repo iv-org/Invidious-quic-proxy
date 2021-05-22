@@ -23,7 +23,7 @@ CONFIG_FILE.touch(exist_ok=True)
 with open(f"{CONFIG_FILE}") as config:
     config = pytomlpp.loads(config.read())
 if not config:
-    config = {"port": 8080, "host": "0.0.0.0"}
+    config = {"port": 7192, "host": "0.0.0.0"}
 routes = web.RouteTableDef()
 
 
