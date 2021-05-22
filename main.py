@@ -1,5 +1,6 @@
 import pathlib
 import logging
+import asyncio
 
 import pytomlpp
 import appdirs
@@ -31,13 +32,18 @@ routes = web.RouteTableDef()
 async def post(request):
     arguments = await request.json()
     post_data = str(arguments.get("data", ""))
+    post_data = post_data if post_data else None
     method = arguments["method"]
 
     # Create heders
     intermediate_header_processing = [(k, v) for k, v in arguments.get("headers", {}).items()]
     processed_headers = CIMultiDict(intermediate_header_processing)
 
-    result = await quicclient.request(arguments["url"], method, processed_headers, post_data if post_data else None)
+    packaged_request = quicclient.InvidiousRequest(url=arguments["url"], method=method, headers=processed_headers,
+                                                   content=post_data)
+    result = {}
+    await request_processor.requests_to_do.put([packaged_request, result])
+    await packaged_request.completed.wait()
 
     if result["headers"][":status"] == "304":
         return web.Response(body=b"", headers=result["headers"], status=304)
@@ -45,7 +51,14 @@ async def post(request):
         return web.Response(body=result["response"], headers=result["headers"])
 
 
-app = web.Application()
-app.add_routes(routes)
+async def main():
+    asyncio.create_task(request_processor.request_worker())
+    app = web.Application()
+    app.add_routes(routes)
+    return app
+
+
+request_processor = quicclient.RequestProcessor()
+
 if __name__ == '__main__':
-    web.run_app(app, **config)
+    web.run_app(main(), **config)

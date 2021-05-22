@@ -26,6 +26,16 @@ USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Ge
 HTTPRequest = collections.namedtuple("HTTPRequest", ["content", "headers", "method", "url"])
 
 
+class InvidiousRequest:
+    def __init__(self, url, method, headers, content):
+        self.url = urlparse(url)
+        self.method = method
+        self.headers = headers
+        self.content = content
+
+        self.completed = asyncio.Event()
+
+
 class URL:
     def __init__(self, url):
         self.authority = url.netloc
@@ -167,25 +177,20 @@ async def handle_response(http_events, store_at=None):
         return store_at
 
 
-async def request(url, method, headers=None, data=None):
-    configuration = QuicConfiguration(is_client=True, alpn_protocols=H3_ALPN, idle_timeout=5)
-    headers = {} if not headers else headers
+class RequestProcessor:
+    def __init__(self):
+        # {InvidiousRequest, storage_dict}
+        self.requests_to_do = asyncio.Queue(0)
 
-    parsed = urlparse(url)
-    if not parsed.scheme:
-        parsed = urlparse(f"https://{url}")
+    async def request_worker(self):
+        configuration = QuicConfiguration(is_client=True, alpn_protocols=H3_ALPN)
+        async with connect_quic_client("youtube.com", 443, configuration=configuration,
+                                       create_protocol=HttpClient) as client:
+            while True:
+                request, storage = await self.requests_to_do.get()
 
-    host = parsed.hostname
-    if parsed.port is not None:
-        port = parsed.port
-    else:
-        port = 443
+                await perform_http_request(client=client, url=request.url, method=request.method,
+                                           headers=request.headers, data=request.content,
+                                           store_at=storage)
 
-    async with connect_quic_client(host, port, configuration=configuration, create_protocol=HttpClient) as client:
-        client = cast(HttpClient, client)
-        response_storage = {}
-
-        await perform_http_request(client=client, url=parsed, method=method, headers=headers, data=data,
-                                   store_at=response_storage)
-
-        return response_storage
+                request.completed.set()
