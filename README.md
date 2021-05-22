@@ -1,6 +1,7 @@
 # [WIP] Quic proxy built in Python for the Invidious project.
 
-##Usage
+## Usage
+
 All requests is done through POST. A data content of 
 <br>
 ```sh
