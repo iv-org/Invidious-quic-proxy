@@ -16,7 +16,6 @@ from aioquic.h3.connection import H3_ALPN, H3Connection
 from aioquic.h3.events import (
     DataReceived,
     HeadersReceived,
-    PushPromiseReceived,
 )
 from aioquic.quic.configuration import QuicConfiguration
 from aioquic.asyncio.client import connect as connect_quic_client
@@ -40,7 +39,6 @@ class HttpClient(QuicConnectionProtocol):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self.pushes = {}
         self._http = H3Connection(self._quic)
         self._request_events = {}
         self._request_waiter = {}
@@ -74,14 +72,6 @@ class HttpClient(QuicConnectionProtocol):
                 if event.stream_ended:
                     request_waiter = self._request_waiter.pop(stream_id)
                     request_waiter.set_result(self._request_events.pop(stream_id))
-
-            elif event.push_id in self.pushes:
-                # push
-                self.pushes[event.push_id].append(event)
-
-        elif isinstance(event, PushPromiseReceived):
-            self.pushes[event.push_id] = collections.deque()
-            self.pushes[event.push_id].append(event)
 
     def quic_event_received(self, event):
         #  pass event to the HTTP layer
@@ -146,23 +136,6 @@ async def perform_http_request(client, url, method, headers, data, store_at):
     )
 
 
-async def process_http_pushes(client):
-    for _, http_events in client.pushes.items():
-        method = ""
-        octets = 0
-        path = ""
-        for http_event in http_events:
-            if isinstance(http_event, DataReceived):
-                octets += len(http_event.data)
-            elif isinstance(http_event, PushPromiseReceived):
-                for header, value in http_event.headers:
-                    if header == b":method":
-                        method = value.decode()
-                    elif header == b":path":
-                        path = value.decode()
-        logger.info("Push received for %s %s : %s bytes", method, path, octets)
-
-
 async def handle_response(http_events, store_at=None):
     resulting_data = {}
     _accumulator = b""
@@ -214,8 +187,5 @@ async def request(url, method, headers=None, data=None):
 
         await perform_http_request(client=client, url=parsed, method=method, headers=headers, data=data,
                                    store_at=response_storage)
-
-        # process http pushes
-        await process_http_pushes(client=client)
 
         return response_storage
