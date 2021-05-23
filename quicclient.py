@@ -98,7 +98,7 @@ class HttpClient(QuicConnectionProtocol):
 
         self._http.send_headers(
             stream_id=stream_id,
-            headers=[(k, v)for k, v in headers.items()],
+            headers=[(k, v) for k, v in headers.items()],
         )
         self._http.send_data(stream_id=stream_id, data=http_request.content, end_stream=True)
 
@@ -186,13 +186,19 @@ class RequestProcessor:
     async def request_worker(self):
         configuration = QuicConfiguration(is_client=True, alpn_protocols=H3_ALPN)
 
-        while self.recreate_connection_check():
+        while await self.recreate_connection_check():
             async with connect("youtube.com", 443, configuration=configuration, create_protocol=HttpClient) as client:
-                while client._quic._state is not ConnectionTerminated:
-                    await self._handle_request(client)
+                while True:
+                    status = await self._handle_request(client)
+                    # Connection has been terminated.
+                    if status is False:
+                        break
 
     async def _handle_request(self, client):
         request, storage = await self.requests_to_do.get()
+
+        if client._quic._state is ConnectionTerminated:
+            return False
 
         await perform_http_request(client=client, url=request.url, method=request.method,
                                    headers=request.headers, data=request.content,
@@ -200,7 +206,7 @@ class RequestProcessor:
 
         request.completed.set()
 
-    def recreate_connection_check(self):
+    async def recreate_connection_check(self):
         # TODO in the future this code should calculate whether or not to recreate a connection based on the amount
         #  of connections currently available and the amount of traffic we're currently receiving. For now we'll
         # just have it recreate a connection anytime it's broken.
