@@ -24,7 +24,7 @@ CONFIG_FILE.touch(exist_ok=True)
 with open(f"{CONFIG_FILE}") as config:
     config = pytomlpp.loads(config.read())
 if not config:
-    config = {"port": 7192, "host": "0.0.0.0"}
+    config = {"port": 7192, "host": "0.0.0.0", "open_connections": 5}
 routes = web.RouteTableDef()
 
 
@@ -52,7 +52,7 @@ async def post(request):
 
 
 async def main():
-    asyncio.create_task(request_processor.request_worker())
+    [asyncio.create_task(request_processor.request_worker()) for _ in range(config.get("open_connections", 5))]
     app = web.Application()
     app.add_routes(routes)
     return app
@@ -61,4 +61,4 @@ async def main():
 request_processor = quicclient.RequestProcessor()
 
 if __name__ == '__main__':
-    web.run_app(main(), **config)
+    web.run_app(main(), port=config.get("port", 7912), host=config.get("host", "0.0.0.0"))
