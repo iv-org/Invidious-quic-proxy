@@ -9,7 +9,6 @@ import collections
 import time
 import logging
 from urllib.parse import urlparse
-from typing import cast
 
 from aioquic.asyncio.protocol import QuicConnectionProtocol
 from aioquic.h3.connection import H3_ALPN, H3Connection
@@ -17,8 +16,9 @@ from aioquic.h3.events import (
     DataReceived,
     HeadersReceived,
 )
+from aioquic.quic.events import ConnectionTerminated
 from aioquic.quic.configuration import QuicConfiguration
-from aioquic.asyncio.client import connect as connect_quic_client
+from aioquic.asyncio.client import connect
 
 logger = logging.getLogger("client")
 logger.setLevel(logging.INFO)
@@ -181,16 +181,27 @@ class RequestProcessor:
     def __init__(self):
         # {InvidiousRequest, storage_dict}
         self.requests_to_do = asyncio.Queue(0)
+        self.processors = []
 
     async def request_worker(self):
         configuration = QuicConfiguration(is_client=True, alpn_protocols=H3_ALPN)
-        async with connect_quic_client("youtube.com", 443, configuration=configuration,
-                                       create_protocol=HttpClient) as client:
-            while True:
-                request, storage = await self.requests_to_do.get()
 
-                await perform_http_request(client=client, url=request.url, method=request.method,
-                                           headers=request.headers, data=request.content,
-                                           store_at=storage)
+        while self.recreate_connection_check():
+            async with connect("youtube.com", 443, configuration=configuration, create_protocol=HttpClient) as client:
+                while client._quic._state is not ConnectionTerminated:
+                    await self._handle_request(client)
 
-                request.completed.set()
+    async def _handle_request(self, client):
+        request, storage = await self.requests_to_do.get()
+
+        await perform_http_request(client=client, url=request.url, method=request.method,
+                                   headers=request.headers, data=request.content,
+                                   store_at=storage)
+
+        request.completed.set()
+
+    def recreate_connection_check(self):
+        # TODO in the future this code should calculate whether or not to recreate a connection based on the amount
+        #  of connections currently available and the amount of traffic we're currently receiving. For now we'll
+        # just have it recreate a connection anytime it's broken.
+        return True
