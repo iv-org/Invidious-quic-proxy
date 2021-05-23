@@ -1,5 +1,6 @@
 import pathlib
 import logging
+import argparse
 import asyncio
 
 import pytomlpp
@@ -8,8 +9,6 @@ from multidict import CIMultiDict
 from aiohttp import web
 
 import quicclient
-
-logging.basicConfig(filename="test.log", level=logging.INFO)
 
 APP_NAME = "QUICProxy"
 APP_AUTHOR = "syeopite"
@@ -26,6 +25,24 @@ with open(f"{CONFIG_FILE}") as config:
 if not config:
     config = {"port": 7192, "host": "0.0.0.0", "open_connections": 5}
 routes = web.RouteTableDef()
+
+
+def process_cli_args():
+    # Taken from https://stackoverflow.com/a/20663028
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-d', '--debug',
+        help="Print lots of debugging statements",
+        action="store_const", dest="loglevel", const=logging.DEBUG,
+        default=logging.WARNING,
+    )
+    parser.add_argument(
+        '-v', '--verbose',
+        help="Be verbose",
+        action="store_const", dest="loglevel", const=logging.INFO,
+    )
+    args = parser.parse_args()
+    logging.basicConfig(level=args.loglevel)
 
 
 @routes.post("/")
@@ -59,6 +76,6 @@ async def main():
 
 
 request_processor = quicclient.RequestProcessor()
-
 if __name__ == '__main__':
+    process_cli_args()
     web.run_app(main(), port=config.get("port", 7912), host=config.get("host", "0.0.0.0"))

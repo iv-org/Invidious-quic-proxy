@@ -1,4 +1,9 @@
-# [WIP] Quic proxy built in Python for the Invidious project.
+# Quic proxy built in Python for the Invidious project.
+
+## Installation
+1. Clone the repository
+2. Create a python virtual environment
+3. Install dependencies through pip `pip install -r requirements.txt`
 
 ## Usage
 
