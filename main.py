@@ -11,7 +11,7 @@ from aiohttp import web
 import quicclient
 
 APP_NAME = "QUICProxy"
-APP_AUTHOR = "syeopite"
+APP_AUTHOR = "iv-org"
 
 CONFIG_DIRECTORY = pathlib.Path(f"{appdirs.user_config_dir(APP_NAME, APP_AUTHOR)}")
 CONFIG_DIRECTORY.mkdir(parents=True, exist_ok=True)
