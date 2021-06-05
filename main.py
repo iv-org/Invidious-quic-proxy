@@ -23,7 +23,7 @@ CONFIG_FILE.touch(exist_ok=True)
 with open(f"{CONFIG_FILE}") as config:
     config = pytomlpp.loads(config.read())
 if not config:
-    config = {"port": 7192, "host": "0.0.0.0", "open_connections": 5}
+    config = {"listen": "0.0.0.0:7192", "open_connections": 5}
 routes = web.RouteTableDef()
 
 
@@ -78,4 +78,6 @@ async def main():
 request_processor = quicclient.RequestProcessor()
 if __name__ == '__main__':
     process_cli_args()
-    web.run_app(main(), port=config.get("port", 7912), host=config.get("host", "0.0.0.0"))
+
+    address, port = config.get("listen", "0.0.0.0:7912").split(":")
+    web.run_app(main(), port=port, host=address)

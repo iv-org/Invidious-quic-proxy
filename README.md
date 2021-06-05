@@ -20,10 +20,8 @@ Will use HTTP/3 to query the specified URL with the specified data, method and h
 The port and address can be changed in config.toml, located in the default OS config location.
 
 ```toml
-# Host address to bind to
-host = "0.0.0.0"
-# Port to listen on
-port = 7192
+# Host address to listen on 
+listen = "0.0.0.0:7192"
 # Amount of workers to process quic requests
 open_connections = 5
 ```
