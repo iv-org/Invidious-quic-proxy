@@ -1,3 +1,4 @@
+import os
 import pathlib
 import logging
 import argparse
@@ -78,6 +79,12 @@ async def main():
 request_processor = quicclient.RequestProcessor()
 if __name__ == '__main__':
     process_cli_args()
+    listen_address = config.get("listen", "0.0.0.0:7912")
 
-    address, port = config.get("listen", "0.0.0.0:7912").split(":")
-    web.run_app(main(), port=port, host=address)
+    # Detect UNIX socket
+    # https://github.com/iv-org/invidious/pull/2111#issuecomment-846454891
+    if os.sep in listen_address or ":" not in listen_address:
+        web.run_app(main(), path=listen_address)
+    else:
+        host, port = config.get("listen", "0.0.0.0:7912").split(":")
+        web.run_app(main(), port=port, host=host)

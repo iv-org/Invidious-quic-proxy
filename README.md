@@ -22,6 +22,9 @@ The port and address can be changed in config.toml, located in the default OS co
 ```toml
 # Host address to listen on 
 listen = "0.0.0.0:7192"
+# It also supports UNIX Sockets!
+# listen = "/tmp/quicproxysocket"
+
 # Amount of workers to process quic requests
 open_connections = 5
 ```
